@@ -14,6 +14,7 @@ import { Sfx } from './audio';
 import { setupAtmosphere } from './atmosphere';
 import { setupCity } from './city';
 import { setupCables } from './cables';
+import { setupNewspapers } from './newspapers';
 import { setupTVLight } from './tvlight';
 import { setupRain } from './rain';
 import { setupDust } from './dust';
@@ -74,6 +75,7 @@ async function start() {
   const rig = setupCamera(camera, canvas, refs);
   const sfx = new Sfx();
   setupCables(scene, refs);
+  setupNewspapers(scene, renderer);
   const city = setupCity(scene, refs); // before atmosphere: it hides the GLB neon signs
   const atmosphere = setupAtmosphere(scene, refs, () => {
     const rec = vcr?.current?.record;
@@ -203,8 +205,8 @@ async function start() {
   addEventListener('keyup', (e) => { const k = GAME_KEYS[e.key.length === 1 ? e.key.toLowerCase() : e.key]; if (k) keys.delete(k); });
   addEventListener('blur', () => keys.clear());
   addEventListener('keydown', (e) => {
-    const el = e.target as HTMLElement;
-    if (el.closest('input, textarea, button, select') || e.ctrlKey || e.metaKey || e.altKey) return;
+    const el = e.target as HTMLElement | null;
+    if (el?.closest?.('input, textarea, button, select') || e.ctrlKey || e.metaKey || e.altKey) return;
     // on channel 7 the arrows / WASD / Space drive the game instead of the VCR
     const gk = GAME_KEYS[e.key.length === 1 ? e.key.toLowerCase() : e.key];
     if (gk && onGameChannel()) {

@@ -71,6 +71,7 @@ You can also run the checker on another file: `node scripts/check-glb.mjs path/t
 | `src/quality.ts` | Quality tiers, device guess and the frame-time governor |
 | `src/game.ts` | SKYLANE, an original arcade game drawn on the screen canvas |
 | `src/joystick.ts` | Splits the stick out of Prop_Joystick so it tilts with the input |
+| `src/newspapers.ts` | Worn old newspapers (procedural pages, torn edges, crumpled sheets) around the room |
 | `src/audio.ts` | Procedural SFX: clunk, whirr, static |
 | `src/ui.ts` | Loading screen, form, tape list, mute/SFX/home buttons |
 
