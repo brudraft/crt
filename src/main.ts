@@ -17,6 +17,7 @@ import { setupCables } from './cables';
 import { setupTVLight } from './tvlight';
 import { setupRain } from './rain';
 import { setupDust } from './dust';
+import { initialTier, QualityGovernor, settingsFor, applyPixelRatio, TIERS, type Tier } from './quality';
 import { parseVideoId, fetchTitle } from './youtube';
 import { readSharedTapes, shareUrl, copyShareLink } from './share';
 
@@ -217,26 +218,62 @@ async function start() {
     setTimeout(() => vcr.insert(first), 900);
   }
 
+  // ---- quality tiers (manual via ⚙ button / ?quality=, automatic step-down when frames get slow)
+  const LABEL: Record<Tier, string> = { high: 'HQ', medium: 'MQ', low: 'LQ' };
+  const applyTier = (tier: Tier, reason: string) => {
+    const s = settingsFor(tier);
+    applyPixelRatio(renderer, s.pixelRatio);
+    dust.setDensity(s.dust);
+    rain.setDensity(s.rain);
+    atmosphere.setHoloInterval(s.holoInterval);
+    ui.setQuality(LABEL[tier], tier);
+    if (reason === 'auto') ui.say(`Lowered graphics quality to ${tier} to keep things smooth.`);
+  };
+  const initial = initialTier();
+  const governor = new QualityGovernor(initial.tier, initial.locked, applyTier);
+  applyTier(initial.tier, "init");
+  ui.onQuality(() => governor.set(TIERS[(TIERS.indexOf(governor.tier) + 1) % TIERS.length], true));
+
+  // ---- one failing subsystem must not kill the render loop: log once, keep going
+  const failed = new Set<string>();
+  const safe = (name: string, fn: () => void) => {
+    try { fn(); } catch (e) { if (!failed.has(name)) { failed.add(name); console.error(`[loop] ${name} failed`, e); } }
+  };
+
   const timer = new THREE.Timer();
   timer.connect(document);
-  renderer.setAnimationLoop(() => {
+  const frame = () => {
     timer.update();
-    const t = timer.getElapsed();
-    interaction.update();
+    const t = timer.getElapsed(), dt = timer.getDelta(), now = performance.now();
+    governor.frame(dt);
+    safe('interaction', () => interaction.update());
     rig.update();
-    lights.update(t);
-    atmosphere.update(t);
-    city.update(t);
-    rain.update(t);
-    tvLight.update(performance.now(), timer.getDelta());
-    tv.setReflectionLevel(tvLight.state.dim);
-    dust.update(t, renderer.domElement.height * 0.5, tvLight.state.k, tvLight.state.color, tvLight.state.dim);
-    vcr.update(performance.now());
+    safe('lights', () => lights.update(t));
+    safe('atmosphere', () => atmosphere.update(t));
+    safe('city', () => city.update(t));
+    safe('rain', () => rain.update(t));
+    safe('tvLight', () => { tvLight.update(now, dt); tv.setReflectionLevel(tvLight.state.dim); });
+    safe('dust', () => dust.update(t, renderer.domElement.height * 0.5, tvLight.state.k, tvLight.state.color, tvLight.state.dim));
+    safe('vcr', () => vcr.update(now));
     renderer.render(scene, camera);
-    tv.render(camera);
+    safe('screen', () => tv.render(camera));
+  };
+  renderer.setAnimationLoop(frame);
+
+  // ---- stop rendering in background tabs (battery); the video keeps playing in its iframe
+  document.addEventListener('visibilitychange', () => {
+    renderer.setAnimationLoop(document.hidden ? null : frame);
   });
 
-  Object.assign(window as any, { __app: { scene, camera, renderer, refs, rig, tv, tapes, vcr, interaction } });
+  // ---- GPU reset / driver crash: tell the user instead of freezing on a black canvas
+  canvas.addEventListener('webglcontextlost', (e) => {
+    e.preventDefault();
+    renderer.setAnimationLoop(null);
+    ui.showFatal('The graphics card was reset. Reload to continue — your tapes are saved.');
+  });
+  canvas.addEventListener('webglcontextrestored', () => location.reload());
+
+  Object.assign(window as any, { __app: { scene, camera, renderer, refs, rig, tv, tapes, vcr, interaction, governor } });
 }
 
 start();

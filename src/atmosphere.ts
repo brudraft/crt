@@ -274,6 +274,7 @@ export interface Atmosphere {
   displayHalo: THREE.Sprite;
   update(t: number): void;
   setHalosVisible(v: boolean): void;
+  setHoloInterval(sec: number): void;
 }
 
 export function setupAtmosphere(scene: THREE.Scene, refs: SceneRefs, getInfo?: () => HoloInfo): Atmosphere {
@@ -297,13 +298,15 @@ export function setupAtmosphere(scene: THREE.Scene, refs: SceneRefs, getInfo?: (
   console.info(`[atmosphere] ${neon.length} neon halos, ${holos.length} holograms`);
 
   let lastHolo = -1;
+  let holoInterval = 0.1;
   return {
     ledHalo, displayHalo,
+    setHoloInterval(sec: number) { holoInterval = sec; },
     setHalosVisible(v: boolean) { for (const h of [...neon, ledHalo, displayHalo, carHalo]) h.visible = v; },
     update(t: number) {
       car(t);
       flicker(t);
-      if (t - lastHolo >= 0.1) { // ~10 fps
+      if (t - lastHolo >= holoInterval) { // ~10 fps
         lastHolo = t;
         if (getInfo) info = getInfo();
         for (const h of holos) { h.draw(h.ctx, t); h.tex.needsUpdate = true; }

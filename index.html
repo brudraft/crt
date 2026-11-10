@@ -8,6 +8,10 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Permanent+Marker&family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/src/style.css" />
+  <!-- start the 7 MB scene download before any JS has run -->
+  <link rel="preload" href="/crt_vhs_scene.glb" as="fetch" type="model/gltf-binary" crossorigin="anonymous" />
+  <link rel="preconnect" href="https://www.youtube-nocookie.com" />
+  <link rel="preconnect" href="https://i.ytimg.com" crossorigin />
 </head>
 <body>
   <div id="stage">
@@ -42,6 +46,7 @@
     <button id="btn-mute" type="button" aria-pressed="false">🔊 SOUND ON</button>
     <button id="btn-sfx" type="button" aria-pressed="false">SFX OFF</button>
     <button id="btn-home" type="button" title="Back to the hero view">⌂ VIEW</button>
+    <button id="btn-quality" type="button">⚙ HQ</button>
   </div>
 
   <button id="unmute-hint" type="button" hidden>🔇 Muted by the browser – tap to unmute</button>

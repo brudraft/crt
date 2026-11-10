@@ -99,6 +99,22 @@ export function setupUI(h: UIHandlers) {
       sfx.setAttribute('aria-pressed', String(on));
     },
     showUnmuteHint(show: boolean) { hint.hidden = !show; },
+    onQuality(fn: () => void) { $('btn-quality').addEventListener('click', fn); },
+    setQuality(label: string, tier: string) {
+      const b = $<HTMLButtonElement>('btn-quality');
+      b.textContent = '⚙ ' + label;
+      b.title = `Graphics quality: ${tier} (click to change)`;
+      b.setAttribute('aria-label', `Graphics quality ${tier}. Click to change.`);
+    },
+    showFatal(msg: string) {
+      const el = $('contract-error');
+      el.hidden = false;
+      el.textContent = msg + String.fromCharCode(10, 10);
+      const btn = document.createElement('button'); btn.type = 'button'; btn.textContent = 'Reload';
+      btn.addEventListener('click', () => location.reload());
+      el.append(btn);
+      btn.focus();
+    },
     setCursor(c: string) { document.body.style.cursor = c; },
   };
 }

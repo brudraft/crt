@@ -43,7 +43,7 @@ const frag = /* glsl */ `
     gl_FragColor = vec4(uColor * a, a);
   }`;
 
-interface Volume { mat: THREE.ShaderMaterial }
+interface Volume { mat: THREE.ShaderMaterial; geo: THREE.BufferGeometry; pts: THREE.Points; count: number }
 
 function makeVolume(scene: THREE.Scene, opts: {
   min: THREE.Vector3; max: THREE.Vector3; count: number; color: THREE.ColorRepresentation; size: number;
@@ -71,7 +71,7 @@ function makeVolume(scene: THREE.Scene, opts: {
   pts.raycast = () => {};
   pts.renderOrder = 6;
   scene.add(pts);
-  return { mat };
+  return { mat, geo, pts, count: opts.count };
 }
 
 export function setupDust(scene: THREE.Scene, refs: SceneRefs) {
@@ -106,6 +106,10 @@ export function setupDust(scene: THREE.Scene, refs: SceneRefs) {
   }) });
 
   return {
+    /** 0 = off, 1 = all motes (quality tiers) */
+    setDensity(f: number) {
+      for (const { v } of vols) { v.pts.visible = f > 0; v.geo.setDrawRange(0, Math.floor(v.count * f)); }
+    },
     /** tvLight: 0..1+ screen brightness; tvColor its tint; room: 1 normal, <1 dimmed */
     update(t: number, px: number, tvLight: number, tvColor: THREE.Color, room: number) {
       for (const { v, base, kind } of vols) {

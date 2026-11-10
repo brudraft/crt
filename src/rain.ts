@@ -64,7 +64,7 @@ const dropFrag = /* glsl */ `
 
 export function setupRain(scene: THREE.Scene, refs: SceneRefs, sky: THREE.Color) {
   const glass = refs.find('Window_Glass');
-  if (!glass) return { update: () => {} };
+  if (!glass) return { update: () => {}, setDensity: () => {} };
   const box = new THREE.Box3().setFromObject(glass);
   const size = box.getSize(new THREE.Vector3());
   const center = box.getCenter(new THREE.Vector3());
@@ -106,11 +106,19 @@ export function setupRain(scene: THREE.Scene, refs: SceneRefs, sky: THREE.Color)
   scene.add(lines);
 
   const wind = 0.18;
+  let active = N;
   return {
+    /** fraction of outdoor rain streaks (0 hides them; the drops on the glass stay) */
+    setDensity(f: number) {
+      active = Math.floor(N * f);
+      lines.visible = active > 0;
+      geo.setDrawRange(0, active * 2);
+    },
     update(t: number) {
       uTime.value = t;
+      if (!active) return;
       const hY = area.y1 - area.y0;
-      for (let i = 0; i < N; i++) {
+      for (let i = 0; i < active; i++) {
         const [sx, sz, sy, sp] = [seeds[i * 4], seeds[i * 4 + 1], seeds[i * 4 + 2], seeds[i * 4 + 3]];
         const z = THREE.MathUtils.lerp(area.z0, area.z1, sz * sz);       // denser near the glass
         const len = 0.35 * sp * (1.2 - sz * 0.6);

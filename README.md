@@ -44,6 +44,7 @@ You can also run the checker on another file: `node scripts/check-glb.mjs path/t
   click, browsers usually only allow muted autoplay, so the unmute button appears. `v` takes an ID or
   any YouTube URL and can be repeated (`?v=ID1&v=ID2`). Only the first tape is loaded; `title` is optional
   (otherwise oEmbed is used). Tapes that are already in the library are reused, not duplicated.
+- **Graphics quality:** ⚙ cycles HQ / MQ / LQ (remembered). Without a choice the app starts at HQ, or MQ on touch devices and machines with 4 or fewer cores or 4 GB or less memory, and steps down by itself when frames average over 24 ms for about 3 s. LQ uses pixel ratio 1, no dust, no outdoor rain streaks and slower hologram updates. Force one with `?quality=low|medium|high`.
 - The tape library is saved in `localStorage` (`crtvhs.tapes.v1`). ✕ erases a tape and frees its textures.
 
 ## Architecture
@@ -66,6 +67,7 @@ You can also run the checker on another file: `node scripts/check-glb.mjs path/t
 | `src/cables.ts` | RCA cables routed into front-AV jacks on the TV's side |
 | `src/channels.ts` | TV channels on the screen canvas: CH 4 test card, CH 5 news, CH 6 adverts |
 | `src/dust.ts` | Dust motes in the window light, under the ceiling strip and in the TV beam |
+| `src/quality.ts` | Quality tiers, device guess and the frame-time governor |
 | `src/audio.ts` | Procedural SFX: clunk, whirr, static |
 | `src/ui.ts` | Loading screen, form, tape list, mute/SFX/home buttons |
 
