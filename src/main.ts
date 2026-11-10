@@ -17,6 +17,8 @@ import { setupCables } from './cables';
 import { setupTVLight } from './tvlight';
 import { setupRain } from './rain';
 import { setupDust } from './dust';
+import { Game } from './game';
+import { setupJoystick } from './joystick';
 import { initialTier, QualityGovernor, settingsFor, applyPixelRatio, TIERS, type Tier } from './quality';
 import { parseVideoId, fetchTitle } from './youtube';
 import { readSharedTapes, shareUrl, copyShareLink } from './share';
@@ -90,6 +92,21 @@ async function start() {
   const tvLight = setupTVLight(scene, refs, tv);
   const rain = setupRain(scene, refs, city.horizon);
   const dust = setupDust(scene, refs);
+
+  // ---- channel 7 game: input from the cart joystick (drag = steer + auto-fire, tap = fire) or keyboard
+  const game = new Game({ blip: (f, d, t) => sfx.blip(f, d, t) });
+  const joystick = setupJoystick(refs);
+  const stickIn = { x: 0, y: 0, held: false, tapUntil: 0 };
+  const keys = new Set<string>();
+  const gameInput = () => {
+    const kx = (keys.has('right') ? 1 : 0) - (keys.has('left') ? 1 : 0);
+    const ky = (keys.has('up') ? 1 : 0) - (keys.has('down') ? 1 : 0);
+    const x = Math.max(-1, Math.min(1, stickIn.x + kx)), y = Math.max(-1, Math.min(1, stickIn.y + ky));
+    return { x, y, fire: keys.has('fire') || stickIn.held || performance.now() < stickIn.tapUntil };
+  };
+  tv.setGame(game, gameInput);
+  const onGameChannel = () => vcr.power && vcr.channel === 7;
+  const tuneToGame = () => { if (!onGameChannel()) { if (!vcr.power) vcr.setPower(true); vcr.setKnob('Knob_Channel', 4 * 27); } };
 
   let userMuted = false;
   let autoMuted = false;
@@ -165,15 +182,37 @@ async function start() {
     onKnobDrag: (n, d) => vcr.setKnob(n as KnobName, vcr.knobAngle(n as KnobName) + d),
     onKnobClick: (n) => vcr.stepKnob(n as KnobName),
     onTVDoubleClick: () => rig.flyHome(),
+    onJoystick(x, y, dragging) {
+      if (dragging) tuneToGame();
+      stickIn.x = x; stickIn.y = y; stickIn.held = dragging && onGameChannel();
+      joystick?.set(x, y);
+    },
+    onJoystickTap() {
+      if (!onGameChannel()) { tuneToGame(); ui.say('Channel 7: SKYLANE – drag the joystick to steer, tap it to fire.'); return; }
+      stickIn.tapUntil = performance.now() + 120;
+    },
     slotWorld: () => vcr.slotWorld(),
     setCursor: (c) => ui.setCursor(c),
   });
   const refreshTargets = () => interaction.setTargets([...occluders, tv.hole, ...tapes.interactiveMeshes()]);
 
   // Keyboard: transport controls when focus isn't in a text field.
+  const GAME_KEYS: Record<string, string> = {
+    ArrowLeft: 'left', a: 'left', ArrowRight: 'right', d: 'right', ArrowUp: 'up', w: 'up', ArrowDown: 'down', s: 'down', ' ': 'fire', Enter: 'fire',
+  };
+  addEventListener('keyup', (e) => { const k = GAME_KEYS[e.key.length === 1 ? e.key.toLowerCase() : e.key]; if (k) keys.delete(k); });
+  addEventListener('blur', () => keys.clear());
   addEventListener('keydown', (e) => {
     const el = e.target as HTMLElement;
     if (el.closest('input, textarea, button, select') || e.ctrlKey || e.metaKey || e.altKey) return;
+    // on channel 7 the arrows / WASD / Space drive the game instead of the VCR
+    const gk = GAME_KEYS[e.key.length === 1 ? e.key.toLowerCase() : e.key];
+    if (gk && onGameChannel()) {
+      e.preventDefault();
+      keys.add(gk);
+      joystick?.set(gameInput().x, gameInput().y);
+      return;
+    }
     const map: Record<string, ButtonName> = { ' ': 'Btn_Play', k: 'Btn_Play', s: 'Btn_Stop', e: 'Btn_Eject', ArrowRight: 'Btn_FF', ArrowLeft: 'Btn_Rew', p: 'Btn_Power' };
     const b = map[e.key];
     if (b) { e.preventDefault(); vcr.press(b); }
@@ -255,6 +294,7 @@ async function start() {
     safe('tvLight', () => { tvLight.update(now, dt); tv.setReflectionLevel(tvLight.state.dim); });
     safe('dust', () => dust.update(t, renderer.domElement.height * 0.5, tvLight.state.k, tvLight.state.color, tvLight.state.dim));
     safe('vcr', () => vcr.update(now));
+    safe('joystick', () => { if (!stickIn.held && keys.size) joystick?.set(gameInput().x, gameInput().y); else if (!stickIn.held && !keys.size) joystick?.set(stickIn.x, stickIn.y); joystick?.update(dt); });
     renderer.render(scene, camera);
     safe('screen', () => tv.render(camera));
   };

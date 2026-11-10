@@ -91,13 +91,16 @@ export interface InteractionHandlers {
   onKnobDrag(name: string, deltaDeg: number): void;
   onKnobClick(name: string): void;
   onTVDoubleClick(): void;
+  /** joystick: x,y in -1…1 while dragging (0,0 on release); tap = fire */
+  onJoystick(x: number, y: number, dragging: boolean): void;
+  onJoystickTap(): void;
   slotWorld(): THREE.Vector3;
   setCursor(c: string): void;
 }
 
 const BUTTONS = /^Btn_(Eject|Play|Stop|FF|Rew|Power)$/;
 const KNOBS = /^Knob_(Channel|Volume)$/;
-type Kind = 'tape' | 'button' | 'knob' | 'tv' | null;
+type Kind = 'tape' | 'button' | 'knob' | 'tv' | 'joystick' | null;
 
 /**
  * Raycast-based pointer handling for tapes, buttons, knobs and TV double-click.
@@ -108,7 +111,7 @@ export class Interaction {
   private ndc = new THREE.Vector2();
   private targets: THREE.Object3D[] = [];
   private down: null | {
-    x: number; y: number; id: number; kind: 'tape' | 'button' | 'knob'; obj: THREE.Object3D; name: string;
+    x: number; y: number; id: number; kind: 'tape' | 'button' | 'knob' | 'joystick'; obj: THREE.Object3D; name: string;
     dragging: boolean; lastX: number; lastY: number;
   } = null;
   private plane = new THREE.Plane();
@@ -146,6 +149,7 @@ export class Interaction {
     while (n) {
       if (BUTTONS.test(n.name)) return { kind: 'button', obj: n, name: n.name };
       if (KNOBS.test(n.name)) return { kind: 'knob', obj: n, name: n.name };
+      if (n.name === 'Prop_Joystick') return { kind: 'joystick', obj: n, name: n.name };
       if (n.name === 'TV_Root' || n.name === 'ScreenHole' || n.name === 'ScreenGlassSheen') return { kind: 'tv', obj: n, name: n.name };
       n = n.parent;
     }
@@ -159,7 +163,7 @@ export class Interaction {
     if (!hit) return;
     const c = this.classify(hit.object);
     if (c.kind === 'tape' && !this.h.canDrag(c.obj)) return;
-    if (c.kind === 'tape' || c.kind === 'button' || c.kind === 'knob') {
+    if (c.kind === 'tape' || c.kind === 'button' || c.kind === 'knob' || c.kind === 'joystick') {
       this.controls.enabled = false; // OrbitControls bails out of its own pointerdown when disabled
       e.stopImmediatePropagation();
       this.dom.setPointerCapture?.(e.pointerId);
@@ -211,6 +215,7 @@ export class Interaction {
       else if (e.type !== 'pointercancel') this.h.onTapeClick(d.obj);
     } else if (d.kind === 'button' && e.type !== 'pointercancel') this.h.onButton(d.name);
     else if (d.kind === 'knob' && !d.dragging && e.type !== 'pointercancel') this.h.onKnobClick(d.name);
+    else if (d.kind === 'joystick') { this.h.onJoystick(0, 0, false); if (!d.dragging && e.type !== 'pointercancel') this.h.onJoystickTap(); }
   };
 
   private onDbl = (e: MouseEvent) => {
@@ -230,6 +235,12 @@ export class Interaction {
         if (d.kind === 'tape') this.h.onDragStart(d.obj);
       }
       if (d.dragging && d.kind === 'tape') this.dragTo(e.clientX, e.clientY);
+      if (d.kind === 'joystick' && moved > 4) {
+        d.dragging = true;
+        const r = Math.max(40, Math.min(innerWidth, innerHeight) * 0.08); // full tilt after ~8% of the screen
+        const clamp = (v: number) => Math.max(-1, Math.min(1, v));
+        this.h.onJoystick(clamp((e.clientX - d.x) / r), clamp(-(e.clientY - d.y) / r), true);
+      }
       if (d.dragging && d.kind === 'knob') this.h.onKnobDrag(d.name, ((e.clientX - d.lastX) - (e.clientY - d.lastY)) * 1.2);
       d.lastX = e.clientX; d.lastY = e.clientY;
       this.h.setCursor(d.kind === 'tape' ? 'grabbing' : 'pointer');
@@ -240,7 +251,7 @@ export class Interaction {
     const c = hit ? this.classify(hit.object) : null;
     const tape = c?.kind === 'tape' && this.h.canDrag(c.obj) ? c.obj : null;
     if (tape !== this.hovered) { this.hovered = tape; this.h.onHoverTape(tape); }
-    this.h.setCursor(tape ? 'grab' : c && (c.kind === 'button' || c.kind === 'knob') ? 'pointer' : '');
+    this.h.setCursor(tape ? 'grab' : c && (c.kind === 'button' || c.kind === 'knob' || c.kind === 'joystick') ? 'pointer' : '');
   }
 
   /** Called once per frame: coalesces pointermove events into a single raycast. */

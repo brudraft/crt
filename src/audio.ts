@@ -59,6 +59,16 @@ export class Sfx {
 
   click() { this.clunk(0.35); }
 
+  /** Chiptune-ish blip for the game channel. */
+  blip(freq: number, dur: number, type: OscillatorType = 'square') {
+    const a = this.ok(); if (!a) return;
+    const { ctx, out } = a; const t = ctx.currentTime;
+    const o = ctx.createOscillator(); o.type = type; o.frequency.setValueAtTime(freq, t);
+    o.frequency.exponentialRampToValueAtTime(Math.max(40, freq * 0.6), t + dur);
+    const g = ctx.createGain(); g.gain.setValueAtTime(0.08, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    o.connect(g).connect(out); o.start(t); o.stop(t + dur + 0.02);
+  }
+
   /** Mechanical motor whirr. */
   whirr(sec = 1.2) {
     const a = this.ok(); if (!a) return;

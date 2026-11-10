@@ -172,7 +172,7 @@ const holoDrawers: Record<string, (c: CanvasRenderingContext2D, t: number, w: nu
   },
   // tuner: channel + signal strength
   Holo_Chart(c, t, w, h) {
-    const names: Record<number, string> = { 3: 'VIDEO', 4: 'TESTBILDE', 5: 'KANAL 5 NYHETER', 6: 'REKLAME' };
+    const names: Record<number, string> = { 3: 'VIDEO', 4: 'TESTBILDE', 5: 'KANAL 5 NYHETER', 6: 'REKLAME', 7: 'SPILL · SKYLANE' };
     frame(c, w, h, `KANAL ${String(info.channel).padStart(2, '0')} · ${names[info.channel] ?? 'INGEN SIGNAL'}`);
     const known = info.power && info.channel in names;
     const n = 8, bw = (w - 60) / n;

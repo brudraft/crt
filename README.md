@@ -34,7 +34,8 @@ You can also run the checker on another file: `node scripts/check-glb.mjs path/t
 - **Play:** drag a tape to the slot under the screen, click it, or use ▶ in the tape list.
 - **TV buttons** (click the meshes): Play/Pause, Stop, FF/Rew (±10 s with tracking noise), Eject, Power.
   **Knobs** turn when you drag or click them. Volume sets the player volume. The VCR outputs on channel 3,
-  CH 4 is a test card, CH 5 news, CH 6 adverts, and the rest is snow. Off channel 3 the tape keeps running with the sound off.
+  CH 4 is a test card, CH 5 news, CH 6 adverts, CH 7 the SKYLANE arcade game, and the rest is snow. Off channel 3 the tape keeps running with the sound off.
+- **SKYLANE (CH 7):** grab the joystick on the cart and the TV tunes to channel 7. Drag it to steer (and auto-fire), tap it to fire or start. On channel 7 the arrows/WASD steer and Space/Enter fire. The high score is saved.
 - **Keys** (when focus isn't in the form): Space/K play/pause, ←/→ rew/ff, S stop, E eject, P power, M mute, H home view.
 - **Double-click the TV** (or press ⌂ VIEW) to fly back to `Cam_Hero`.
 - Sound: the app tries to play with sound, because the drag or click counts as a user gesture. If the
@@ -68,6 +69,8 @@ You can also run the checker on another file: `node scripts/check-glb.mjs path/t
 | `src/channels.ts` | TV channels on the screen canvas: CH 4 test card, CH 5 news, CH 6 adverts |
 | `src/dust.ts` | Dust motes in the window light, under the ceiling strip and in the TV beam |
 | `src/quality.ts` | Quality tiers, device guess and the frame-time governor |
+| `src/game.ts` | SKYLANE, an original arcade game drawn on the screen canvas |
+| `src/joystick.ts` | Splits the stick out of Prop_Joystick so it tilts with the input |
 | `src/audio.ts` | Procedural SFX: clunk, whirr, static |
 | `src/ui.ts` | Loading screen, form, tape list, mute/SFX/home buttons |
 

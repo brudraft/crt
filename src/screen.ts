@@ -3,8 +3,9 @@ import { CSS3DRenderer, CSS3DObject } from 'three/examples/jsm/renderers/CSS3DRe
 import { bestLocalAxis, type SceneRefs } from './scene-contract';
 import { TapePlayer, type PlayerEvents } from './youtube';
 import { drawTestCard, drawNews, drawAds } from './channels';
+import type { Game, GameInput } from './game';
 
-export type ScreenMode = 'off' | 'idle' | 'static' | 'video' | 'blank' | 'error' | 'testcard' | 'news' | 'ads';
+export type ScreenMode = 'off' | 'idle' | 'static' | 'video' | 'blank' | 'error' | 'testcard' | 'news' | 'ads' | 'game';
 
 const PX_W = 640, PX_H = 480;
 const CANVAS_W = 320, CANVAS_H = 240;
@@ -32,6 +33,11 @@ export class TVScreen {
   private glass: THREE.Mesh;
   private afterglow = 0;
   private lastFrame = performance.now();
+  private game: Game | null = null;
+  private gameInput: () => GameInput = () => ({ x: 0, y: 0, fire: false });
+  private lastGame = 0;
+  /** Channel 7: the arcade game draws into the screen canvas. */
+  setGame(game: Game, input: () => GameInput) { this.game = game; this.gameInput = input; }
   private powerAnimUntil = 0;
   private powered = true;
   private scene = { level: 0.7, next: 0, tint: new THREE.Color(0.75, 0.85, 1) };
@@ -200,6 +206,7 @@ export class TVScreen {
       case 'idle': case 'error': out.setRGB(0.15, 0.25, 1); return 0.8 * flick;
       case 'static': case 'blank': out.setRGB(0.85, 0.88, 0.95); return 0.45 + Math.random() * 0.25;
       case 'testcard': out.setRGB(0.8, 0.8, 0.9); return 0.95;
+      case 'game': out.setRGB(0.55, 0.25, 0.75); return 0.55 * flick;
       case 'news': out.setRGB(0.35, 0.5, 1.0); return 0.6 * flick;
       case 'ads': { const i = Math.floor(now / 6000) % 3; out.setRGB(...([[1, 0.3, 0.35], [0.45, 0.4, 1], [0.6, 0.6, 0.9]][i] as [number, number, number])); return 0.75 * flick; }
       case 'video': {
@@ -257,6 +264,14 @@ export class TVScreen {
   // ---------- 2D canvas states ----------
   private draw() {
     const now = performance.now();
+    if (this.mode === 'game' && this.game) {            // 60 fps, own timing
+      const dt = this.lastGame ? (now - this.lastGame) / 1000 : 0.016;
+      this.lastGame = now;
+      this.game.frame(this.ctx, dt, this.gameInput());
+      if (now < this.osdUntil) this.text(this.osdText, 20, 40, 18, '#7dff8a', 'left', true);
+      return;
+    }
+    this.lastGame = 0;
     const animated = this.mode === 'static' || this.mode === 'blank' || this.mode === 'news' || this.mode === 'ads' || now < this.trackingUntil || now < this.glitchUntil;
     const fps = animated ? 30 : 4; // idle screen still needs the blinking cursor
     if (now - this.lastDraw < 1000 / fps) return;

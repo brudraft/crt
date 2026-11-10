@@ -349,7 +349,7 @@ export class VCR {
     if (!this.power) return;
     const playable = this.current && (this.state === 'PLAYING' || this.state === 'PAUSED' || this.state === 'LOADING');
     // CH 3 = VCR, 4 = test card, 5 = news, 6 = adverts, everything else = snow
-    const broadcast: Record<number, ScreenMode> = { 4: 'testcard', 5: 'news', 6: 'ads' };
+    const broadcast: Record<number, ScreenMode> = { 4: 'testcard', 5: 'news', 6: 'ads', 7: 'game' };
     this.hooks.onChannelAudio?.(this.channel === 3);
     if (this.channel !== 3) this.tv.setMode(broadcast[this.channel] ?? 'blank');
     else if (playable && this.tv.getMode() !== 'error') this.tv.setMode('video');
