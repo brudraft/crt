@@ -22,6 +22,7 @@ import { Game } from './game';
 import { Ambience } from './ambience';
 import { Notifier } from './notify';
 import { setupWindowReflection } from './windowreflect';
+import { Walk } from './walk';
 import { setupJoystick } from './joystick';
 import { initialTier, QualityGovernor, settingsFor, applyPixelRatio, TIERS, type Tier } from './quality';
 import { parseVideoId, fetchTitle } from './youtube';
@@ -155,8 +156,8 @@ async function start() {
       ui.showUnmuteHint(false);
     },
     onToggleSfx() { ui.setSfx(sfx.toggle()); },
-    onHome() { rig.flyHome(); },
-    onWindow() { if (rig.mode === 'window') rig.flyHome(1.8); else rig.flyWindow(); },
+    onHome() { if (walk.active) toggleWalk(); rig.flyHome(); },
+    onWindow() { if (walk.active) toggleWalk(); if (rig.mode === 'window') rig.flyHome(1.8); else rig.flyWindow(); },
     onUnmuteHint() { autoMuted = false; userMuted = false; tv.player.unMute(); ui.setMuted(false); ui.showUnmuteHint(false); },
   });
 
@@ -214,7 +215,7 @@ async function start() {
       stickIn.tapUntil = performance.now() + 120;
     },
     slotWorld: () => vcr.slotWorld(),
-    setCursor: (c) => ui.setCursor(c),
+    setCursor: (c) => { ui.setCursor(walk.locked ? 'none' : c); crosshair.classList.toggle('hot', c === 'grab' || c === 'pointer'); },
   });
   const refreshTargets = () => interaction.setTargets([...occluders, ...(refs.find('Window_Glass') ? [refs.find('Window_Glass')!] : []), notifier.mesh, tv.hole, ...tapes.interactiveMeshes()]);
 
@@ -237,10 +238,56 @@ async function start() {
     }
     const map: Record<string, ButtonName> = { ' ': 'Btn_Play', k: 'Btn_Play', s: 'Btn_Stop', e: 'Btn_Eject', ArrowRight: 'Btn_FF', ArrowLeft: 'Btn_Rew', p: 'Btn_Power' };
     const b = map[e.key];
+    if (e.key.toLowerCase() === 'f') { e.preventDefault(); toggleWalk(); return; }
+    if (walk.active && e.key.toLowerCase() === 'e') { e.preventDefault(); interaction.useCenter(); return; }
     if (b) { e.preventDefault(); vcr.press(b); }
     else if (e.key === 'm') ui.toggleMute();
     else if (e.key === 'h') rig.flyHome();
   });
+
+  // ---- first-person walk mode (F / 🚶 button)
+  const crosshair = document.getElementById('crosshair')!;
+  const walkHelp = document.getElementById('walk-help')!;
+  const coarse = matchMedia('(pointer: coarse)').matches;
+  const helpText = (locked: boolean) => coarse
+    ? 'Left thumb: walk · drag: look around · tap things to use them · 🪑 to sit down'
+    : locked ? 'WASD walk · Shift faster · mouse look · click / E use · Esc frees the mouse · F sit down'
+      : 'Click to look around with the mouse · WASD walk · F sit down';
+  const walk = new Walk(camera, canvas, refs, {
+    onLockChange(locked) {
+      interaction.setCenterMode(locked);
+      crosshair.hidden = !walk.active || (!locked && !coarse);
+      walkHelp.textContent = helpText(locked);
+      if (walk.active) { walkHelp.hidden = false; clearTimeout(helpTimer); helpTimer = window.setTimeout(() => { walkHelp.hidden = true; }, 6000); }
+      ui.setCursor(locked ? 'none' : '');
+    },
+  });
+  const walkBtn = document.getElementById('btn-walk') as HTMLButtonElement;
+  let helpTimer = 0;
+  const toggleWalk = () => {
+    if (!walk.active) {
+      rig.controls.enabled = false;
+      walk.enter();
+      document.body.classList.add('walking');
+      walkHelp.hidden = false; walkHelp.textContent = helpText(walk.locked);
+      clearTimeout(helpTimer); helpTimer = window.setTimeout(() => { walkHelp.hidden = true; }, 9000);
+      crosshair.hidden = !coarse;
+      walkBtn.textContent = '🪑 SIT'; walkBtn.title = 'Sit back down (F)';
+      if (!coarse) try { (canvas.requestPointerLock as () => void)(); } catch { /* needs a click */ }
+    } else {
+      walk.exit();
+      interaction.setCenterMode(false);
+      document.body.classList.remove('walking');
+      walkHelp.hidden = true; crosshair.hidden = true;
+      walkBtn.textContent = '🚶 WALK'; walkBtn.title = 'Walk around the room (F)';
+      // hand the camera back to the orbit rig: look where we were looking, then sit back down
+      const fwd = camera.getWorldDirection(new THREE.Vector3());
+      rig.controls.target.copy(camera.position).addScaledVector(fwd, 1.2);
+      rig.controls.enabled = true;
+      rig.flyHome(1.6);
+    }
+  };
+  walkBtn.addEventListener('click', (e) => { e.stopPropagation(); toggleWalk(); });
 
   tapes.setOnChange(() => {
     ui.setTapes(tapes.list().map((r) => ({ id: r.id, title: r.title })));
@@ -310,7 +357,7 @@ async function start() {
     const t = timer.getElapsed(), dt = timer.getDelta(), now = performance.now();
     governor.frame(dt);
     safe('interaction', () => interaction.update());
-    rig.update();
+    if (walk.active) walk.update(dt); else rig.update();
     safe('lights', () => lights.update(t));
     safe('atmosphere', () => atmosphere.update(t));
     safe('city', () => city.update(t));
@@ -345,7 +392,7 @@ async function start() {
   });
   canvas.addEventListener('webglcontextrestored', () => location.reload());
 
-  Object.assign(window as any, { __app: { scene, camera, renderer, refs, rig, tv, tapes, vcr, interaction, governor, sfx, ambience, notifier } });
+  Object.assign(window as any, { __app: { scene, camera, renderer, refs, rig, tv, tapes, vcr, interaction, governor, sfx, ambience, notifier, walk } });
 }
 
 start();

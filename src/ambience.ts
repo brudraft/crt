@@ -21,8 +21,8 @@ export class Ambience {
   private ctx!: AudioContext;
   private duck!: GainNode;
   private cityFilter!: BiquadFilterNode;
-  private cityPan!: StereoPannerNode;
-  private wallPan!: StereoPannerNode;
+  private cityPan!: PannerNode;
+  private wallPan!: PannerNode;
   private room!: GainNode; private city!: GainNode; private wall!: GainNode;
   private crt!: GainNode;
   private traffic!: GainNode; private rain!: GainNode;
@@ -52,7 +52,7 @@ export class Ambience {
 
     // city bus: through the glass → lowpass, panned towards the window
     this.cityFilter = ctx.createBiquadFilter(); this.cityFilter.type = 'lowpass'; this.cityFilter.frequency.value = 900; this.cityFilter.Q.value = 0.5;
-    this.cityPan = ctx.createStereoPanner();
+    this.cityPan = this.spatial(this.window.clone().add(new THREE.Vector3(0, 0, -0.4)), 1.6, 0.6);
     this.city = ctx.createGain(); this.city.gain.value = 1;
     this.city.connect(this.cityFilter).connect(this.cityPan).connect(this.duck);
     // long echo between the towers, shared by sirens and the advert
@@ -64,7 +64,7 @@ export class Ambience {
 
     // wall bus: only the bass makes it through concrete
     const wallLp = ctx.createBiquadFilter(); wallLp.type = 'lowpass'; wallLp.frequency.value = 190; wallLp.Q.value = 0.7;
-    this.wallPan = ctx.createStereoPanner();
+    this.wallPan = this.spatial(this.neighbourWall, 1.2, 0.9);
     this.wall = ctx.createGain(); this.wall.gain.value = 1;
     this.wall.connect(wallLp).connect(this.wallPan).connect(this.duck);
 
@@ -98,6 +98,17 @@ export class Ambience {
     }
     return b;
   }
+  /** HRTF panner at a world position (room sounds get louder as you walk up to them). */
+  private spatial(pos: THREE.Vector3, ref = 1, rolloff = 1.2) {
+    const p = this.ctx.createPanner();
+    p.panningModel = 'HRTF'; p.distanceModel = 'inverse';
+    p.refDistance = ref; p.rolloffFactor = rolloff; p.maxDistance = 50;
+    p.positionX.value = pos.x; p.positionY.value = pos.y; p.positionZ.value = pos.z;
+    return p;
+  }
+  private fridgePos = new THREE.Vector3(2.6, 0.9, 3.0);
+  private clockPos = new THREE.Vector3(-1.4, 1.9, 3.3);
+
   private loop(buf: AudioBuffer) { const s = this.ctx.createBufferSource(); s.buffer = buf; s.loop = true; s.start(); return s; }
 
   // ------------------------------------------------------------------ room
@@ -105,7 +116,7 @@ export class Ambience {
     const ctx = this.ctx;
     const g = ctx.createGain(); g.gain.value = 0;
     const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 380;
-    const pan = ctx.createStereoPanner(); pan.pan.value = 0.55; // somewhere off to the right/back
+    const pan = this.spatial(this.fridgePos, 0.8, 1.4); // kitchen corner, back right
     for (const [f, a] of [[50, 0.5], [100, 0.35], [150, 0.15], [233, 0.05]] as const) {
       const o = ctx.createOscillator(); o.type = f === 50 ? 'sine' : 'triangle'; o.frequency.value = f;
       const og = ctx.createGain(); og.gain.value = a; o.connect(og).connect(lp); o.start();
@@ -135,7 +146,7 @@ export class Ambience {
 
   private startClock() {
     const ctx = this.ctx;
-    const pan = ctx.createStereoPanner(); pan.pan.value = -0.35;
+    const pan = this.spatial(this.clockPos, 0.5, 1.6); // on the wall shelf
     pan.connect(this.room);
     const buf = this.noise(0.03);
     let tock = false;
@@ -159,7 +170,7 @@ export class Ambience {
     const hg = ctx.createGain(); hg.gain.value = 0.5;
     whine.connect(wg).connect(this.crt); hum.connect(hg).connect(this.crt);
     whine.start(); hum.start();
-    this.crt.connect(this.room);
+    this.crt.connect(this.spatial(this.tv, 0.35, 2)).connect(this.room);
   }
 
   // ------------------------------------------------------------------ city
@@ -177,7 +188,7 @@ export class Ambience {
     const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 2600;
     this.loop(this.noise(5)).connect(hp).connect(lp).connect(this.rain);
     // rain on the glass is right there – not behind it – so only lightly filtered and panned
-    const pan = ctx.createStereoPanner(); pan.pan.value = 0.4;
+    const pan = this.spatial(this.window, 1.2, 0.8);
     this.rain.connect(pan).connect(this.room);
     // single drips hitting the pane
     const drip = () => {
@@ -278,16 +289,21 @@ export class Ambience {
     const t = this.ctx.currentTime;
     const cam = s.camera.position;
     this.right.set(1, 0, 0).applyQuaternion(s.camera.quaternion);
-    const pan = (p: THREE.Vector3) => THREE.MathUtils.clamp(this.tmp.subVectors(p, cam).normalize().dot(this.right), -1, 1) * 0.85;
-    this.cityPan.pan.setTargetAtTime(pan(this.window), t, 0.15);
-    this.wallPan.pan.setTargetAtTime(pan(this.neighbourWall), t, 0.15);
+    const L = this.ctx.listener;
+    const fwd = this.tmp.set(0, 0, -1).applyQuaternion(s.camera.quaternion);
+    const up = new THREE.Vector3(0, 1, 0).applyQuaternion(s.camera.quaternion);
+    if (L.positionX) {
+      L.positionX.setTargetAtTime(cam.x, t, 0.05); L.positionY.setTargetAtTime(cam.y, t, 0.05); L.positionZ.setTargetAtTime(cam.z, t, 0.05);
+      L.forwardX.setTargetAtTime(fwd.x, t, 0.05); L.forwardY.setTargetAtTime(fwd.y, t, 0.05); L.forwardZ.setTargetAtTime(fwd.z, t, 0.05);
+      L.upX.setTargetAtTime(up.x, t, 0.05); L.upY.setTargetAtTime(up.y, t, 0.05); L.upZ.setTargetAtTime(up.z, t, 0.05);
+    } else { L.setPosition(cam.x, cam.y, cam.z); L.setOrientation(fwd.x, fwd.y, fwd.z, up.x, up.y, up.z); }
     // closer to the glass = less muffled, louder
     const dWin = cam.distanceTo(this.window);
     this.cityFilter.frequency.setTargetAtTime(700 + 1800 * Math.exp(-dWin * 0.9), t, 0.2);
     this.city.gain.setTargetAtTime(0.7 + 0.6 * Math.exp(-dWin * 0.8), t, 0.2);
     // CRT whine + hum: only when the tube is on, and you have to be close to hear it
     const dTv = cam.distanceTo(this.tv);
-    this.crt.gain.setTargetAtTime(s.tvOn ? 0.012 * Math.min(1, 0.6 / Math.max(0.3, dTv)) : 0, t, 0.3);
+    this.crt.gain.setTargetAtTime(s.tvOn ? 0.006 : 0, t, 0.3); void dTv; // distance is handled by the panner
     // gusty rain + swelling traffic
     if (Math.random() < dt * 0.15) this.gustTarget = rand(0.4, 1.4);
     this.gust += (this.gustTarget - this.gust) * Math.min(1, dt * 0.5);

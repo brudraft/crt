@@ -167,6 +167,27 @@ export class Interaction {
   private grabOffset = new THREE.Vector3();
   private hovered: THREE.Object3D | null = null;
   private pendingMove: PointerEvent | null = null;
+  /** walk mode with a captured mouse: everything is aimed with the screen-centre crosshair */
+  private center = false;
+  setCenterMode(on: boolean) { this.center = on; if (on) this.pendingMove = new PointerEvent('pointermove'); }
+
+  /** "Use" whatever the crosshair points at (E key / click in walk mode). Returns true if something was hit. */
+  useCenter(): boolean {
+    const was = this.center; this.center = true;
+    const hit = this.pick(0, 0);
+    this.center = was;
+    if (!hit) return false;
+    const c = this.classify(hit.object);
+    if (hit.distance > 2.2 && c.kind !== 'tv') return false; // arm's reach (plus a bit)
+    switch (c.kind) {
+      case 'tape': if (this.h.canDrag(c.obj)) this.h.onTapeClick(c.obj); return true;
+      case 'button': this.h.onButton(c.name); return true;
+      case 'knob': this.h.onKnobClick(c.name); return true;
+      case 'holo': this.h.onHoloClick(); return true;
+      case 'joystick': this.h.onJoystickTap(); return true;
+      default: return false;
+    }
+  }
 
   constructor(private camera: THREE.PerspectiveCamera, private dom: HTMLElement, private controls: OrbitControls, private h: InteractionHandlers) {
     dom.addEventListener('pointerdown', this.onDown, { capture: true });
@@ -181,7 +202,8 @@ export class Interaction {
 
   private setRay(clientX: number, clientY: number) {
     const r = this.dom.getBoundingClientRect();
-    this.ndc.set(((clientX - r.left) / r.width) * 2 - 1, -((clientY - r.top) / r.height) * 2 + 1);
+    if (this.center) this.ndc.set(0, 0);
+    else this.ndc.set(((clientX - r.left) / r.width) * 2 - 1, -((clientY - r.top) / r.height) * 2 + 1);
     this.ray.setFromCamera(this.ndc, this.camera);
   }
 
@@ -209,6 +231,7 @@ export class Interaction {
 
   private onDown = (e: PointerEvent) => {
     if (e.pointerType === 'mouse' && e.button !== 0) return;
+    if (this.center) { if (this.useCenter()) e.stopImmediatePropagation(); return; }
     if (this.down) return; // second finger → let OrbitControls handle pinch
     const hit = this.pick(e.clientX, e.clientY);
     if (!hit) return;
@@ -300,7 +323,7 @@ export class Interaction {
       this.h.setCursor(d.kind === 'tape' ? 'grabbing' : 'pointer');
       return;
     }
-    if (e.pointerType === 'touch') return;
+    if (e.pointerType === 'touch' && !this.center) return;
     const hit = this.pick(e.clientX, e.clientY);
     const c = hit ? this.classify(hit.object) : null;
     const tape = c?.kind === 'tape' && this.h.canDrag(c.obj) ? c.obj : null;
