@@ -20,6 +20,7 @@ import { setupRain } from './rain';
 import { setupDust } from './dust';
 import { Game } from './game';
 import { Ambience } from './ambience';
+import { Notifier } from './notify';
 import { setupJoystick } from './joystick';
 import { initialTier, QualityGovernor, settingsFor, applyPixelRatio, TIERS, type Tier } from './quality';
 import { parseVideoId, fetchTitle } from './youtube';
@@ -111,6 +112,12 @@ async function start() {
   const onGameChannel = () => vcr.power && vcr.channel === 7;
   const tuneToGame = () => { if (!onGameChannel()) { if (!vcr.power) vcr.setPower(true); vcr.setKnob('Knob_Channel', 4 * 27); } };
 
+  // ---- the assistant that keeps trying to reach you (wall hologram above the TV)
+  const notifier = new Notifier(scene, new THREE.Vector3(-0.18, 1.6, -1.4), 0, {
+    chime: (urgent) => sfx.chime(urgent),
+    pulse: () => atmosphere.pulse(),
+  });
+
   let userMuted = false;
   let autoMuted = false;
   const ui = setupUI({
@@ -197,6 +204,7 @@ async function start() {
       stickIn.x = x; stickIn.y = y; stickIn.held = dragging && onGameChannel();
       joystick?.set(x, y);
     },
+    onHoloClick: () => notifier.click(),
     onJoystickTap() {
       if (!onGameChannel()) { tuneToGame(); ui.say('Channel 7: SKYLANE – drag the joystick to steer, tap it to fire.'); return; }
       stickIn.tapUntil = performance.now() + 120;
@@ -204,7 +212,7 @@ async function start() {
     slotWorld: () => vcr.slotWorld(),
     setCursor: (c) => ui.setCursor(c),
   });
-  const refreshTargets = () => interaction.setTargets([...occluders, tv.hole, ...tapes.interactiveMeshes()]);
+  const refreshTargets = () => interaction.setTargets([...occluders, notifier.mesh, tv.hole, ...tapes.interactiveMeshes()]);
 
   // Keyboard: transport controls when focus isn't in a text field.
   const GAME_KEYS: Record<string, string> = {
@@ -304,6 +312,12 @@ async function start() {
     safe('tvLight', () => { tvLight.update(now, dt); tv.setReflectionLevel(tvLight.state.dim); });
     safe('dust', () => dust.update(t, renderer.domElement.height * 0.5, tvLight.state.k, tvLight.state.color, tvLight.state.dim));
     safe('vcr', () => vcr.update(now));
+    safe('notify', () => {
+      const rec = vcr.current?.record;
+      const playing = vcr.state === 'PLAYING' && vcr.channel === 3;
+      if (playing && rec) notifier.notePlay(rec.title);
+      notifier.update(now, { playing, title: rec?.title ?? null, channel: vcr.channel, power: vcr.power, tapes: tapes.list().length });
+    });
     safe('ambience', () => ambience.update({ camera, tvOn: vcr.power, filmPlaying: vcr.state === 'PLAYING' && vcr.channel === 3 }, dt));
     safe('joystick', () => { if (!stickIn.held && keys.size) joystick?.set(gameInput().x, gameInput().y); else if (!stickIn.held && !keys.size) joystick?.set(stickIn.x, stickIn.y); joystick?.update(dt); });
     renderer.render(scene, camera);
@@ -324,7 +338,7 @@ async function start() {
   });
   canvas.addEventListener('webglcontextrestored', () => location.reload());
 
-  Object.assign(window as any, { __app: { scene, camera, renderer, refs, rig, tv, tapes, vcr, interaction, governor, sfx, ambience } });
+  Object.assign(window as any, { __app: { scene, camera, renderer, refs, rig, tv, tapes, vcr, interaction, governor, sfx, ambience, notifier } });
 }
 
 start();

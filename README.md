@@ -73,6 +73,7 @@ You can also run the checker on another file: `node scripts/check-glb.mjs path/t
 | `src/joystick.ts` | Splits the stick out of Prop_Joystick so it tilts with the input |
 | `src/newspapers.ts` | Worn old newspapers (procedural pages, torn edges, crumpled sheets) around the room |
 | `src/ambience.ts` | Soundscape: fridge cycle, clock, CRT whine, muffled traffic, sirens, fly-bys, advert echo, gusty rain, the neighbour through the wall; stereo-panned to the camera and ducked during films |
+| `src/notify.ts` | The assistant: holographic notifications above the TV that blink for attention, collapse into an ignored-count badge, and can be clicked away |
 | `src/audio.ts` | Procedural SFX: clunk, whirr, static |
 | `src/ui.ts` | Loading screen, form, tape list, mute/SFX/home buttons |
 

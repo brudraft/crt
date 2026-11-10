@@ -77,6 +77,19 @@ export class Sfx {
 
   click() { this.clunk(0.35); }
 
+  /** Soft assistant chime (two sine notes; three and higher when urgent). */
+  chime(urgent = false) {
+    const a = this.ok(); if (!a) return;
+    const { ctx, out } = a; const t0 = ctx.currentTime;
+    const notes = urgent ? [988, 1319, 988] : [784, 1175];
+    notes.forEach((f, i) => {
+      const t = t0 + i * 0.16;
+      const o = ctx.createOscillator(); o.type = 'sine'; o.frequency.value = f;
+      const g = ctx.createGain(); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.05, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0005, t + 0.9);
+      o.connect(g).connect(out); o.start(t); o.stop(t + 1);
+    });
+  }
+
   /** Chiptune-ish blip for the game channel. */
   blip(freq: number, dur: number, type: OscillatorType = 'square') {
     const a = this.ok(); if (!a) return;

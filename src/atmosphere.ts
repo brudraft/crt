@@ -275,6 +275,8 @@ export interface Atmosphere {
   update(t: number): void;
   setHalosVisible(v: boolean): void;
   setHoloInterval(sec: number): void;
+  /** make all wall holograms flash for attention */
+  pulse(): void;
 }
 
 export function setupAtmosphere(scene: THREE.Scene, refs: SceneRefs, getInfo?: () => HoloInfo): Atmosphere {
@@ -299,12 +301,19 @@ export function setupAtmosphere(scene: THREE.Scene, refs: SceneRefs, getInfo?: (
 
   let lastHolo = -1;
   let holoInterval = 0.1;
+  let flash = 0;
   return {
     ledHalo, displayHalo,
     setHoloInterval(sec: number) { holoInterval = sec; },
+    pulse() { flash = 1; },
     setHalosVisible(v: boolean) { for (const h of [...neon, ledHalo, displayHalo, carHalo]) h.visible = v; },
     update(t: number) {
       car(t);
+      if (flash > 0) {
+        flash = Math.max(0, flash - 0.012);
+        const k = flash * (0.5 + 0.5 * Math.sin(t * 25));
+        for (const h of holos) { (h.mat as unknown as THREE.MeshBasicMaterial).opacity = 0.9 - 0.6 * k; (h.mat as unknown as THREE.MeshBasicMaterial).color.setRGB(1 + k, 1 + k * 0.3, 1 + k); }
+      }
       flicker(t);
       if (t - lastHolo >= holoInterval) { // ~10 fps
         lastHolo = t;

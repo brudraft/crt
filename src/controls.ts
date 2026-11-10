@@ -94,13 +94,14 @@ export interface InteractionHandlers {
   /** joystick: x,y in -1…1 while dragging (0,0 on release); tap = fire */
   onJoystick(x: number, y: number, dragging: boolean): void;
   onJoystickTap(): void;
+  onHoloClick(): void;
   slotWorld(): THREE.Vector3;
   setCursor(c: string): void;
 }
 
 const BUTTONS = /^Btn_(Eject|Play|Stop|FF|Rew|Power)$/;
 const KNOBS = /^Knob_(Channel|Volume)$/;
-type Kind = 'tape' | 'button' | 'knob' | 'tv' | 'joystick' | null;
+type Kind = 'tape' | 'button' | 'knob' | 'tv' | 'joystick' | 'holo' | null;
 
 /**
  * Raycast-based pointer handling for tapes, buttons, knobs and TV double-click.
@@ -111,7 +112,7 @@ export class Interaction {
   private ndc = new THREE.Vector2();
   private targets: THREE.Object3D[] = [];
   private down: null | {
-    x: number; y: number; id: number; kind: 'tape' | 'button' | 'knob' | 'joystick'; obj: THREE.Object3D; name: string;
+    x: number; y: number; id: number; kind: 'tape' | 'button' | 'knob' | 'joystick' | 'holo'; obj: THREE.Object3D; name: string;
     dragging: boolean; lastX: number; lastY: number;
   } = null;
   private plane = new THREE.Plane();
@@ -150,6 +151,7 @@ export class Interaction {
       if (BUTTONS.test(n.name)) return { kind: 'button', obj: n, name: n.name };
       if (KNOBS.test(n.name)) return { kind: 'knob', obj: n, name: n.name };
       if (n.name === 'Prop_Joystick') return { kind: 'joystick', obj: n, name: n.name };
+      if (n.name === 'Holo_Notify') return { kind: 'holo', obj: n, name: n.name };
       if (n.name === 'TV_Root' || n.name === 'ScreenHole' || n.name === 'ScreenGlassSheen') return { kind: 'tv', obj: n, name: n.name };
       n = n.parent;
     }
@@ -163,7 +165,7 @@ export class Interaction {
     if (!hit) return;
     const c = this.classify(hit.object);
     if (c.kind === 'tape' && !this.h.canDrag(c.obj)) return;
-    if (c.kind === 'tape' || c.kind === 'button' || c.kind === 'knob' || c.kind === 'joystick') {
+    if (c.kind === 'tape' || c.kind === 'button' || c.kind === 'knob' || c.kind === 'joystick' || c.kind === 'holo') {
       this.controls.enabled = false; // OrbitControls bails out of its own pointerdown when disabled
       e.stopImmediatePropagation();
       this.dom.setPointerCapture?.(e.pointerId);
@@ -215,6 +217,7 @@ export class Interaction {
       else if (e.type !== 'pointercancel') this.h.onTapeClick(d.obj);
     } else if (d.kind === 'button' && e.type !== 'pointercancel') this.h.onButton(d.name);
     else if (d.kind === 'knob' && !d.dragging && e.type !== 'pointercancel') this.h.onKnobClick(d.name);
+    else if (d.kind === 'holo' && !d.dragging && e.type !== 'pointercancel') this.h.onHoloClick();
     else if (d.kind === 'joystick') { this.h.onJoystick(0, 0, false); if (!d.dragging && e.type !== 'pointercancel') this.h.onJoystickTap(); }
   };
 
@@ -251,7 +254,7 @@ export class Interaction {
     const c = hit ? this.classify(hit.object) : null;
     const tape = c?.kind === 'tape' && this.h.canDrag(c.obj) ? c.obj : null;
     if (tape !== this.hovered) { this.hovered = tape; this.h.onHoverTape(tape); }
-    this.h.setCursor(tape ? 'grab' : c && (c.kind === 'button' || c.kind === 'knob' || c.kind === 'joystick') ? 'pointer' : '');
+    this.h.setCursor(tape ? 'grab' : c && (c.kind === 'button' || c.kind === 'knob' || c.kind === 'joystick' || c.kind === 'holo') ? 'pointer' : '');
   }
 
   /** Called once per frame: coalesces pointermove events into a single raycast. */
