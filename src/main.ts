@@ -19,6 +19,7 @@ import { setupTVLight } from './tvlight';
 import { setupRain } from './rain';
 import { setupDust } from './dust';
 import { Game } from './game';
+import { Ambience } from './ambience';
 import { setupJoystick } from './joystick';
 import { initialTier, QualityGovernor, settingsFor, applyPixelRatio, TIERS, type Tier } from './quality';
 import { parseVideoId, fetchTitle } from './youtube';
@@ -147,6 +148,13 @@ async function start() {
     onToggleSfx() { ui.setSfx(sfx.toggle()); },
     onHome() { rig.flyHome(); },
     onUnmuteHint() { autoMuted = false; userMuted = false; tv.player.unMute(); ui.setMuted(false); ui.showUnmuteHint(false); },
+  });
+
+  ui.setSfx(sfx.enabled);
+  const glassBox = refs.find('Window_Glass') ? new THREE.Box3().setFromObject(refs.find('Window_Glass')!) : null;
+  const ambience = new Ambience(sfx, {
+    window: glassBox?.getCenter(new THREE.Vector3()),
+    tv: refs.screenAnchor.getWorldPosition(new THREE.Vector3()),
   });
 
   vcr = new VCR(refs, tv, tapes, sfx, {
@@ -296,6 +304,7 @@ async function start() {
     safe('tvLight', () => { tvLight.update(now, dt); tv.setReflectionLevel(tvLight.state.dim); });
     safe('dust', () => dust.update(t, renderer.domElement.height * 0.5, tvLight.state.k, tvLight.state.color, tvLight.state.dim));
     safe('vcr', () => vcr.update(now));
+    safe('ambience', () => ambience.update({ camera, tvOn: vcr.power, filmPlaying: vcr.state === 'PLAYING' && vcr.channel === 3 }, dt));
     safe('joystick', () => { if (!stickIn.held && keys.size) joystick?.set(gameInput().x, gameInput().y); else if (!stickIn.held && !keys.size) joystick?.set(stickIn.x, stickIn.y); joystick?.update(dt); });
     renderer.render(scene, camera);
     safe('screen', () => tv.render(camera));
@@ -315,7 +324,7 @@ async function start() {
   });
   canvas.addEventListener('webglcontextrestored', () => location.reload());
 
-  Object.assign(window as any, { __app: { scene, camera, renderer, refs, rig, tv, tapes, vcr, interaction, governor } });
+  Object.assign(window as any, { __app: { scene, camera, renderer, refs, rig, tv, tapes, vcr, interaction, governor, sfx, ambience } });
 }
 
 start();

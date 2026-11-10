@@ -1,43 +1,61 @@
-/** Procedural WebAudio SFX (no assets). Muted by default; the AudioContext is created on first enable. */
+/**
+ * Procedural WebAudio (no assets). Sound is ON by default (remembered); browsers only allow an
+ * AudioContext after a user gesture, so it is created on the first click/tap/key press.
+ */
+const KEY = 'crtvhs.sfx.v1';
+
 export class Sfx {
   private ctx: AudioContext | null = null;
   private master: GainNode | null = null;
-  enabled = false;
+  private readyCbs: ((ctx: AudioContext, out: GainNode) => void)[] = [];
+  enabled = true;
+
+  constructor() {
+    try { const v = localStorage.getItem(KEY); if (v !== null) this.enabled = v === '1'; } catch { /* storage blocked */ }
+    const arm = () => {
+      this.ensure();
+      if (this.ctx) for (const ev of ['pointerdown', 'keydown', 'touchend']) removeEventListener(ev, arm, true);
+    };
+    for (const ev of ['pointerdown', 'keydown', 'touchend']) addEventListener(ev, arm, true);
+  }
+
+  /** Called once the AudioContext exists (ambience hooks in here). */
+  onReady(cb: (ctx: AudioContext, out: GainNode) => void) {
+    if (this.ctx && this.master) cb(this.ctx, this.master); else this.readyCbs.push(cb);
+  }
+
+  private ensure() {
+    if (!this.enabled) return;
+    if (!this.ctx) {
+      try { this.ctx = new AudioContext(); } catch { return; }
+      this.master = this.ctx.createGain();
+      this.master.gain.value = 0;
+      this.master.connect(this.ctx.destination);
+      for (const cb of this.readyCbs) cb(this.ctx, this.master);
+      this.readyCbs = [];
+    }
+    this.ctx.resume();
+    const t = this.ctx.currentTime;
+    this.master!.gain.cancelScheduledValues(t);
+    this.master!.gain.setTargetAtTime(0.5, t, 0.4);
+  }
 
   toggle() {
     this.enabled = !this.enabled;
-    if (this.enabled && !this.ctx) {
-      this.ctx = new AudioContext();
-      this.master = this.ctx.createGain();
-      this.master.gain.value = 0.5;
-      this.master.connect(this.ctx.destination);
+    try { localStorage.setItem(KEY, this.enabled ? '1' : '0'); } catch { /* ignore */ }
+    if (this.enabled) this.ensure();
+    else if (this.ctx && this.master) {
+      const t = this.ctx.currentTime;
+      this.master.gain.cancelScheduledValues(t);
+      this.master.gain.setTargetAtTime(0, t, 0.15);
+      setTimeout(() => { if (!this.enabled) this.ctx?.suspend(); }, 800);
     }
-    this.ctx?.resume();
-    this.rain(this.enabled);
     return this.enabled;
-  }
-
-  private rainNode: { src: AudioBufferSourceNode; g: GainNode } | null = null;
-  /** Soft rain against the window (looping filtered noise) while SFX are on. */
-  private rain(on: boolean) {
-    if (!this.ctx || !this.master) return;
-    const ctx = this.ctx, t = ctx.currentTime;
-    if (on && !this.rainNode) {
-      const src = ctx.createBufferSource(); src.buffer = this.noiseBuffer(ctx, 4); src.loop = true;
-      const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 1400;
-      const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 300;
-      const g = ctx.createGain(); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.07, t + 1.5);
-      src.connect(lp).connect(hp).connect(g).connect(this.master); src.start();
-      this.rainNode = { src, g };
-    } else if (!on && this.rainNode) {
-      const { src, g } = this.rainNode; this.rainNode = null;
-      g.gain.linearRampToValueAtTime(0, t + 0.5); src.stop(t + 0.6);
-    }
   }
 
   private ok() { return this.enabled && this.ctx && this.master ? { ctx: this.ctx, out: this.master } : null; }
 
-  private noiseBuffer(ctx: AudioContext, sec: number) {
+  noiseBuffer(ctx: AudioContext, sec: number) {
     const b = ctx.createBuffer(1, Math.ceil(ctx.sampleRate * sec), ctx.sampleRate);
     const d = b.getChannelData(0);
     for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;

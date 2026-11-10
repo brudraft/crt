@@ -39,7 +39,7 @@ You can also run the checker on another file: `node scripts/check-glb.mjs path/t
 - **Keys** (when focus isn't in the form): Space/K play/pause, ←/→ rew/ff, S stop, E eject, P power, M mute, H home view.
 - **Double-click the TV** (or press ⌂ VIEW) to fly back to `Cam_Hero`.
 - Sound: the app tries to play with sound, because the drag or click counts as a user gesture. If the
-  browser blocks that, it plays muted and shows an unmute button. SFX are procedural WebAudio and off by default.
+  browser blocks that, it plays muted and shows an unmute button. Room and city sounds are on by default (remembered; the SFX button turns them off) and start on the first click, tap or key press.
 - **Share a tape:** 🔗 in the tape list copies a link like `https://your-site/?v=wzhdzE0I8qI&title=…`.
   Whoever opens it gets the tape added to their cart and loaded into the VCR automatically. Without a
   click, browsers usually only allow muted autoplay, so the unmute button appears. `v` takes an ID or
@@ -72,6 +72,7 @@ You can also run the checker on another file: `node scripts/check-glb.mjs path/t
 | `src/game.ts` | SKYLANE, an original arcade game drawn on the screen canvas |
 | `src/joystick.ts` | Splits the stick out of Prop_Joystick so it tilts with the input |
 | `src/newspapers.ts` | Worn old newspapers (procedural pages, torn edges, crumpled sheets) around the room |
+| `src/ambience.ts` | Soundscape: fridge cycle, clock, CRT whine, muffled traffic, sirens, fly-bys, advert echo, gusty rain, the neighbour through the wall; stereo-panned to the camera and ducked during films |
 | `src/audio.ts` | Procedural SFX: clunk, whirr, static |
 | `src/ui.ts` | Loading screen, form, tape list, mute/SFX/home buttons |
 
