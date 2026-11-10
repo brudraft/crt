@@ -55,24 +55,29 @@ export function setupTVLight(scene: THREE.Scene, refs: SceneRefs, tv: TVScreen) 
   });
   const envBase = scene.environmentIntensity;
 
-  let dim = 1, target = 1;
+  let dim = 1, target = 1, ceil = 1, ceilTarget = 1;
   const col = new THREE.Color();
   const state = { k: 0, color: col, dim: 1 };
   return {
     state,
     /** true while a film is playing → dim the room */
     setFilmMode(on: boolean) { target = on ? 0.62 : 1; },
+    /** ceiling light switch: off leaves the room to the TV, the lamp and the city */
+    setCeiling(on: boolean) { ceilTarget = on ? 1 : 0.3; },
     update(now: number, dt: number) {
       const k = tv.emission(now, col);
       state.k = k; state.dim = dim;
       light.color.copy(col);
       light.intensity = k * 10;
       for (const p of pools) { p.mat.color.copy(col); p.mat.opacity = Math.min(1, k) * p.max; }
-      if (Math.abs(dim - target) > 1e-3) {
+      if (Math.abs(dim - target) > 1e-3 || Math.abs(ceil - ceilTarget) > 1e-3) {
         dim += (target - dim) * Math.min(1, dt * 1.5);
-        for (const b of baked) b.m.color.copy(b.base).multiplyScalar(dim);
-        for (const w of warm) w.l.intensity = w.base * (0.4 + 0.6 * dim);
-        scene.environmentIntensity = envBase * (0.5 + 0.5 * dim);
+        ceil += (ceilTarget - ceil) * Math.min(1, dt * 9); // a switch is quick, a film fade is slow
+        const k = dim * ceil;
+        for (const b of baked) b.m.color.copy(b.base).multiplyScalar(k);
+        for (const w of warm) w.l.intensity = w.base * (0.25 + 0.75 * k);
+        scene.environmentIntensity = envBase * (0.4 + 0.6 * k);
+        state.dim = k;
       }
     },
   };

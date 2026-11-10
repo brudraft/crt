@@ -38,6 +38,7 @@ You can also run the checker on another file: `node scripts/check-glb.mjs path/t
 - **SKYLANE (CH 7):** grab the joystick on the cart and the TV tunes to channel 7. Drag it to steer (and auto-fire), tap it to fire or start. On channel 7 the arrows/WASD steer and Space/Enter fire. The high score is saved.
 - **Keys** (when focus isn't in the form): Space/K play/pause, ←/→ rew/ff, S stop, E eject, P power, M mute, H home view.
 - **Walk:** 🚶 WALK or F stands you up. Click to capture the mouse, then WASD/arrows walk (Shift faster), the mouse looks around and click or E uses what the crosshair points at (tapes, buttons, knobs, joystick, notifications). Esc frees the mouse and F / 🪑 SIT sits you back down. On touch, use the stick bottom-left and drag to look. You collide with the walls, cart, sideboard, side table, divider and plant pots, and room sounds are 3D (HRTF) around you.
+- **Things to use** (click them, or aim the crosshair and press E): the sideboard lamp, the answering machine (one old message from Mom, spoken with a Norwegian speech-synthesis voice if the browser has one, always subtitled), the drawer with a photo and a letter you can pick up (drag to turn, click/E/Esc to put back), the ceiling-light switch by the door (L) and the window blinds (B).
 - **Window:** ▦ WINDOW (or double-click the glass) walks you to the window to look down on the city; you see a faint reflection of the room, and yourself, in the glass. ⌂ VIEW or double-clicking again walks back.
 - **Breathing:** after a few seconds without input the camera breathes and sways very slightly, like someone sitting there.
 - **Double-click the TV** (or press ⌂ VIEW) to fly back to `Cam_Hero`.
@@ -79,6 +80,9 @@ You can also run the checker on another file: `node scripts/check-glb.mjs path/t
 | `src/notify.ts` | The assistant: holographic notifications above the TV that blink for attention, collapse into an ignored-count badge, and can be clicked away |
 | `src/windowreflect.ts` | Mirror reflection of the room and your silhouette in the window glass, rendered only near the window |
 | `src/walk.ts` | First-person walk mode: pointer lock / touch stick, collision boxes, head bob |
+| `src/sideboard.ts` | Lamp, answering machine, drawer with photo and letter |
+| `src/roomctl.ts` | Ceiling-light switch and venetian blinds |
+| `src/inspect.ts` | Pick up an object, turn it and put it back |
 | `src/audio.ts` | Procedural SFX: clunk, whirr, static |
 | `src/ui.ts` | Loading screen, form, tape list, mute/SFX/home buttons |
 

@@ -174,3 +174,8 @@ button:hover { background: #2c2155; }
 .walk-stick.on { opacity: 1; }
 .walk-stick-knob { position: absolute; left: 30px; top: 30px; width: 40px; height: 40px; border-radius: 50%; background: rgba(63,240,255,0.55); }
 body.walking #tape-form, body.walking #hint { display: none; }
+
+#inspect-caption { position: fixed; left: 50%; top: 72px; transform: translateX(-50%); z-index: 11; pointer-events: none;
+  background: rgba(10,8,24,0.75); border: 1px solid var(--edge); border-radius: 4px; padding: 4px 12px; font-size: 18px; max-width: calc(100vw - 24px); text-align: center; }
+#subtitle { position: fixed; left: 50%; bottom: 84px; transform: translateX(-50%); z-index: 11; pointer-events: none;
+  background: rgba(0,0,0,0.72); color: #fff8e0; border-radius: 3px; padding: 6px 14px; font-size: 22px; max-width: min(720px, calc(100vw - 24px)); text-align: center; }

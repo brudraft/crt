@@ -23,6 +23,9 @@ import { Ambience } from './ambience';
 import { Notifier } from './notify';
 import { setupWindowReflection } from './windowreflect';
 import { Walk } from './walk';
+import { Inspector } from './inspect';
+import { setupSideboard } from './sideboard';
+import { setupRoomControls } from './roomctl';
 import { setupJoystick } from './joystick';
 import { initialTier, QualityGovernor, settingsFor, applyPixelRatio, TIERS, type Tier } from './quality';
 import { parseVideoId, fetchTitle } from './youtube';
@@ -209,6 +212,8 @@ async function start() {
       joystick?.set(x, y);
     },
     onHoloClick: () => notifier.click(),
+    onUse: (obj) => (obj.userData.onUse as () => void)(),
+    isBusy: () => !!inspector.active,
     onWindowDoubleClick: () => (rig.mode === 'window' ? rig.flyHome(1.8) : rig.flyWindow()),
     onJoystickTap() {
       if (!onGameChannel()) { tuneToGame(); ui.say('Channel 7: SKYLANE – drag the joystick to steer, tap it to fire.'); return; }
@@ -217,7 +222,7 @@ async function start() {
     slotWorld: () => vcr.slotWorld(),
     setCursor: (c) => { ui.setCursor(walk.locked ? 'none' : c); crosshair.classList.toggle('hot', c === 'grab' || c === 'pointer'); },
   });
-  const refreshTargets = () => interaction.setTargets([...occluders, ...(refs.find('Window_Glass') ? [refs.find('Window_Glass')!] : []), notifier.mesh, tv.hole, ...tapes.interactiveMeshes()]);
+  const refreshTargets = () => interaction.setTargets([...occluders, ...useMeshes, ...(refs.find('Window_Glass') ? [refs.find('Window_Glass')!] : []), notifier.mesh, tv.hole, ...tapes.interactiveMeshes()]);
 
   // Keyboard: transport controls when focus isn't in a text field.
   const GAME_KEYS: Record<string, string> = {
@@ -239,11 +244,27 @@ async function start() {
     const map: Record<string, ButtonName> = { ' ': 'Btn_Play', k: 'Btn_Play', s: 'Btn_Stop', e: 'Btn_Eject', ArrowRight: 'Btn_FF', ArrowLeft: 'Btn_Rew', p: 'Btn_Power' };
     const b = map[e.key];
     if (e.key.toLowerCase() === 'f') { e.preventDefault(); toggleWalk(); return; }
+    if (e.key.toLowerCase() === 'l') { e.preventDefault(); roomCtl.toggleCeiling(); return; }
+    if (e.key.toLowerCase() === 'b') { e.preventDefault(); roomCtl.toggleBlinds(); return; }
     if (walk.active && e.key.toLowerCase() === 'e') { e.preventDefault(); interaction.useCenter(); return; }
     if (b) { e.preventDefault(); vcr.press(b); }
     else if (e.key === 'm') ui.toggleMute();
     else if (e.key === 'h') rig.flyHome();
   });
+
+  // ---- things you can use: sideboard (lamp, answering machine, drawer), light switch, blinds
+  scene.add(camera); // the inspector holds objects in front of the camera
+  const subtitle = document.getElementById('subtitle')!;
+  const inspector = new Inspector(camera, canvas, (on) => { walk.paused = on; rig.controls.enabled = !on && !walk.active; });
+  const sideboard = setupSideboard(scene, refs, sfx, inspector, {
+    caption(text) { subtitle.hidden = !text; subtitle.textContent = text ?? ''; },
+  });
+  const roomCtl = setupRoomControls(scene, refs, sfx, {
+    setCeiling: (on) => tvLight.setCeiling(on),
+    setBlinds: () => {},
+  });
+  const useMeshes: THREE.Object3D[] = [];
+  for (const root of [sideboard?.root, ...roomCtl.targets]) root?.traverse((o) => { if ((o as THREE.Mesh).isMesh) useMeshes.push(o); });
 
   // ---- first-person walk mode (F / 🚶 button)
   const crosshair = document.getElementById('crosshair')!;
@@ -273,7 +294,7 @@ async function start() {
       clearTimeout(helpTimer); helpTimer = window.setTimeout(() => { walkHelp.hidden = true; }, 9000);
       crosshair.hidden = !coarse;
       walkBtn.textContent = '🪑 SIT'; walkBtn.title = 'Sit back down (F)';
-      if (!coarse) try { (canvas.requestPointerLock as () => void)(); } catch { /* needs a click */ }
+      if (!coarse) try { const r = (canvas.requestPointerLock as () => Promise<void> | void).call(canvas); if (r && typeof r.catch === 'function') r.catch(() => {}); } catch { /* needs a click */ }
     } else {
       walk.exit();
       interaction.setCenterMode(false);
@@ -365,6 +386,7 @@ async function start() {
     safe('tvLight', () => { tvLight.update(now, dt); tv.setReflectionLevel(tvLight.state.dim); });
     safe('dust', () => dust.update(t, renderer.domElement.height * 0.5, tvLight.state.k, tvLight.state.color, tvLight.state.dim));
     safe('vcr', () => vcr.update(now));
+    safe('sideboard', () => sideboard?.update(now));
     safe('reflection', () => reflection?.update(dt, tvLight.state.dim));
     safe('notify', () => {
       const rec = vcr.current?.record;
@@ -392,7 +414,7 @@ async function start() {
   });
   canvas.addEventListener('webglcontextrestored', () => location.reload());
 
-  Object.assign(window as any, { __app: { scene, camera, renderer, refs, rig, tv, tapes, vcr, interaction, governor, sfx, ambience, notifier, walk } });
+  Object.assign(window as any, { __app: { scene, camera, renderer, refs, rig, tv, tapes, vcr, interaction, governor, sfx, ambience, notifier, walk, inspector, roomCtl } });
 }
 
 start();

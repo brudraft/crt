@@ -17,6 +17,8 @@ const RADIUS = 0.24;
 export class Walk {
   active = false;
   locked = false;
+  /** set while inspecting an object: the mouse turns the object, not your head */
+  paused = false;
   private yaw = 0; private pitch = 0;
   private vel = new THREE.Vector3();
   private keys = new Set<string>();
@@ -63,14 +65,14 @@ export class Walk {
       hooks.onLockChange(this.locked);
     });
     document.addEventListener('mousemove', (e) => {
-      if (!this.active || !this.locked) return;
+      if (!this.active || !this.locked || this.paused) return;
       this.turn(e.movementX * 0.0022, e.movementY * 0.0022);
     });
     // desktop: click captures the mouse; touch: stick (left) / look (right)
     dom.addEventListener('pointerdown', (e) => {
       if (!this.active) return;
       if (e.pointerType === 'mouse') {
-        if (!this.locked && dom.requestPointerLock) { try { (dom.requestPointerLock as () => Promise<void> | void)(); } catch { /* not allowed */ } }
+        if (!this.locked && dom.requestPointerLock) { try { const r = (dom.requestPointerLock as () => Promise<void> | void).call(dom); if (r && typeof r.catch === 'function') r.catch(() => {}); } catch { /* not allowed (iframes, some embedded browsers) */ } }
         if (!this.locked) { this.look = { id: e.pointerId, x: e.clientX, y: e.clientY }; } // fallback: drag to look
         return;
       }
@@ -88,7 +90,7 @@ export class Walk {
         this.stick.x = Math.cos(a) * r; this.stick.y = Math.sin(a) * r;
         this.knobEl.style.transform = `translate(${this.stick.x * 32}px, ${this.stick.y * 32}px)`;
         this.lastInput = performance.now();
-      } else if (e.pointerId === this.look.id) {
+      } else if (e.pointerId === this.look.id && !this.paused) {
         this.turn((e.clientX - this.look.x) * 0.005, (e.clientY - this.look.y) * 0.005);
         this.look.x = e.clientX; this.look.y = e.clientY;
       }
