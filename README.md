@@ -37,6 +37,8 @@ You can also run the checker on another file: `node scripts/check-glb.mjs path/t
   CH 4 is a test card, CH 5 news, CH 6 adverts, CH 7 the SKYLANE arcade game, and the rest is snow. Off channel 3 the tape keeps running with the sound off.
 - **SKYLANE (CH 7):** grab the joystick on the cart and the TV tunes to channel 7. Drag it to steer (and auto-fire), tap it to fire or start. On channel 7 the arrows/WASD steer and Space/Enter fire. The high score is saved.
 - **Keys** (when focus isn't in the form): Space/K play/pause, ←/→ rew/ff, S stop, E eject, P power, M mute, H home view.
+- **Window:** ▦ WINDOW (or double-click the glass) walks you to the window to look down on the city; you see a faint reflection of the room, and yourself, in the glass. ⌂ VIEW or double-clicking again walks back.
+- **Breathing:** after a few seconds without input the camera breathes and sways very slightly, like someone sitting there.
 - **Double-click the TV** (or press ⌂ VIEW) to fly back to `Cam_Hero`.
 - Sound: the app tries to play with sound, because the drag or click counts as a user gesture. If the
   browser blocks that, it plays muted and shows an unmute button. Room and city sounds are on by default (remembered; the SFX button turns them off) and start on the first click, tap or key press.
@@ -74,6 +76,7 @@ You can also run the checker on another file: `node scripts/check-glb.mjs path/t
 | `src/newspapers.ts` | Worn old newspapers (procedural pages, torn edges, crumpled sheets) around the room |
 | `src/ambience.ts` | Soundscape: fridge cycle, clock, CRT whine, muffled traffic, sirens, fly-bys, advert echo, gusty rain, the neighbour through the wall; stereo-panned to the camera and ducked during films |
 | `src/notify.ts` | The assistant: holographic notifications above the TV that blink for attention, collapse into an ignored-count badge, and can be clicked away |
+| `src/windowreflect.ts` | Mirror reflection of the room and your silhouette in the window glass, rendered only near the window |
 | `src/audio.ts` | Procedural SFX: clunk, whirr, static |
 | `src/ui.ts` | Loading screen, form, tape list, mute/SFX/home buttons |
 

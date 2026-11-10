@@ -5,7 +5,9 @@ import type { SceneRefs } from './scene-contract';
 
 export interface CameraRig {
   controls: OrbitControls;
+  readonly mode: 'home' | 'window';
   flyHome(duration?: number): void;
+  flyWindow(duration?: number): void;
   update(): void;
   resize(w: number, h: number): void;
 }
@@ -44,24 +46,69 @@ export function setupCamera(camera: THREE.PerspectiveCamera, dom: HTMLElement, r
 
   let flying: gsap.core.Tween | null = null;
 
+  // ---- window viewpoint: stand at the glass and look down on the city
+  const glass = refs.find('Window_Glass');
+  const gBox = glass ? new THREE.Box3().setFromObject(glass) : new THREE.Box3(new THREE.Vector3(0.15, 0, -1.63), new THREE.Vector3(2.92, 2.8, -1.63));
+  const gC = gBox.getCenter(new THREE.Vector3());
+  const windowPos = new THREE.Vector3(gC.x - 0.1, 1.5, Math.max(room.min.z + 0.05, gBox.max.z + 0.45));
+  // gaze out and ~25° down over the rooftops; target kept close so the orbit distance limits still apply
+  const windowTarget = windowPos.clone().add(new THREE.Vector3(0.25, -0.8, -1.7).normalize().multiplyScalar(1.6));
+  const limits = {
+    home: { min: 0.45, max: 2.4, minPolar: 0.28, maxPolar: 0.6 },
+    window: { min: 0.6, max: 2.2, minPolar: 0.12, maxPolar: 0.62 },
+  };
+  let mode: 'home' | 'window' = 'home';
+  const setLimits = (m: 'home' | 'window') => {
+    const l = limits[m];
+    controls.minDistance = l.min; controls.maxDistance = l.max;
+    controls.minPolarAngle = Math.PI * l.minPolar; controls.maxPolarAngle = Math.PI * l.maxPolar;
+  };
+
+  const flyTo = (pos: THREE.Vector3, tgt: THREE.Vector3, m: 'home' | 'window', duration: number) => {
+    flying?.kill();
+    mode = m;
+    // widen limits during the flight so the clamp doesn't fight the tween
+    controls.minDistance = 0.1; controls.maxDistance = 10; controls.minPolarAngle = 0.05; controls.maxPolarAngle = Math.PI * 0.95;
+    const from = camera.position.clone(), fromT = controls.target.clone();
+    // arc slightly upwards between viewpoints, like walking and turning your head
+    const mid = from.clone().lerp(pos, 0.5); mid.y += from.distanceTo(pos) > 1 ? 0.12 : 0;
+    const curve = new THREE.QuadraticBezierCurve3(from, mid, pos);
+    const p = { k: 0 };
+    flying = gsap.to(p, {
+      k: 1, duration, ease: 'power2.inOut',
+      onUpdate: () => { camera.position.copy(curve.getPoint(p.k)); controls.target.lerpVectors(fromT, tgt, p.k); },
+      onComplete: () => { setLimits(m); flying = null; },
+    });
+  };
+
+  // ---- idle "breathing": a person sitting still, not a tripod
+  let lastInput = performance.now();
+  for (const ev of ['pointerdown', 'pointermove', 'wheel', 'touchstart', 'keydown']) dom.addEventListener(ev, () => { lastInput = performance.now(); }, { passive: true });
+  addEventListener('keydown', () => { lastInput = performance.now(); });
+  const breath = new THREE.Vector3();
+  const breathT = new THREE.Vector3();
+  let breathAmt = 0;
+
   return {
     controls,
-    flyHome(duration = 1.2) {
-      flying?.kill();
-      const from = camera.position.clone();
-      const fromT = controls.target.clone();
-      const p = { k: 0 };
-      flying = gsap.to(p, {
-        k: 1, duration, ease: 'power2.inOut',
-        onUpdate: () => {
-          camera.position.lerpVectors(from, home, p.k);
-          controls.target.lerpVectors(fromT, target, p.k);
-        },
-      });
-    },
+    get mode() { return mode; },
+    flyHome(duration = 1.2) { flyTo(home, target, 'home', duration); },
+    flyWindow(duration = 2.2) { flyTo(windowPos, windowTarget, 'window', duration); },
     update() {
+      // take last frame's breathing offset out before OrbitControls integrates, then add the new one
+      camera.position.sub(breath); controls.target.sub(breathT);
       controls.update();
       camera.position.clamp(room.min, room.max);
+      const now = performance.now();
+      const idle = !flying && now - lastInput > 3500 && controls.enabled;
+      breathAmt += ((idle ? 1 : 0) - breathAmt) * (idle ? 0.01 : 0.15);
+      const t = now / 1000;
+      const inhale = Math.sin(t * 2 * Math.PI * 0.23);            // ~14 breaths per minute
+      const sway = Math.sin(t * 0.37) * 0.6 + Math.sin(t * 0.91 + 1.7) * 0.4;
+      breath.set(sway * 0.0035, inhale * 0.0028, inhale * 0.0016).multiplyScalar(breathAmt);
+      breathT.set(sway * 0.006 + Math.sin(t * 0.21) * 0.004, Math.sin(t * 0.17 + 0.5) * 0.003, 0).multiplyScalar(breathAmt); // gaze drifts a little
+      camera.position.add(breath); controls.target.add(breathT);
+      camera.lookAt(controls.target);
     },
     resize(w: number, h: number) {
       const aspect = w / h;
@@ -95,13 +142,14 @@ export interface InteractionHandlers {
   onJoystick(x: number, y: number, dragging: boolean): void;
   onJoystickTap(): void;
   onHoloClick(): void;
+  onWindowDoubleClick(): void;
   slotWorld(): THREE.Vector3;
   setCursor(c: string): void;
 }
 
 const BUTTONS = /^Btn_(Eject|Play|Stop|FF|Rew|Power)$/;
 const KNOBS = /^Knob_(Channel|Volume)$/;
-type Kind = 'tape' | 'button' | 'knob' | 'tv' | 'joystick' | 'holo' | null;
+type Kind = 'tape' | 'button' | 'knob' | 'tv' | 'joystick' | 'holo' | 'window' | null;
 
 /**
  * Raycast-based pointer handling for tapes, buttons, knobs and TV double-click.
@@ -152,6 +200,7 @@ export class Interaction {
       if (KNOBS.test(n.name)) return { kind: 'knob', obj: n, name: n.name };
       if (n.name === 'Prop_Joystick') return { kind: 'joystick', obj: n, name: n.name };
       if (n.name === 'Holo_Notify') return { kind: 'holo', obj: n, name: n.name };
+      if (n.name === 'Window_Glass') return { kind: 'window', obj: n, name: n.name };
       if (n.name === 'TV_Root' || n.name === 'ScreenHole' || n.name === 'ScreenGlassSheen') return { kind: 'tv', obj: n, name: n.name };
       n = n.parent;
     }
@@ -223,7 +272,9 @@ export class Interaction {
 
   private onDbl = (e: MouseEvent) => {
     const hit = this.pick(e.clientX, e.clientY);
-    if (hit && this.classify(hit.object).kind === 'tv') this.h.onTVDoubleClick();
+    const k = hit ? this.classify(hit.object).kind : null;
+    if (k === 'tv') this.h.onTVDoubleClick();
+    else if (k === 'window') this.h.onWindowDoubleClick();
   };
 
   private flushMove() {

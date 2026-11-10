@@ -21,6 +21,7 @@ import { setupDust } from './dust';
 import { Game } from './game';
 import { Ambience } from './ambience';
 import { Notifier } from './notify';
+import { setupWindowReflection } from './windowreflect';
 import { setupJoystick } from './joystick';
 import { initialTier, QualityGovernor, settingsFor, applyPixelRatio, TIERS, type Tier } from './quality';
 import { parseVideoId, fetchTitle } from './youtube';
@@ -95,6 +96,7 @@ async function start() {
   const tapes = new TapeLibrary(refs, renderer);
   const tvLight = setupTVLight(scene, refs, tv);
   const rain = setupRain(scene, refs, city.horizon);
+  const reflection = setupWindowReflection(scene, refs, renderer, camera);
   const dust = setupDust(scene, refs);
 
   // ---- channel 7 game: input from the cart joystick (drag = steer + auto-fire, tap = fire) or keyboard
@@ -154,6 +156,7 @@ async function start() {
     },
     onToggleSfx() { ui.setSfx(sfx.toggle()); },
     onHome() { rig.flyHome(); },
+    onWindow() { if (rig.mode === 'window') rig.flyHome(1.8); else rig.flyWindow(); },
     onUnmuteHint() { autoMuted = false; userMuted = false; tv.player.unMute(); ui.setMuted(false); ui.showUnmuteHint(false); },
   });
 
@@ -205,6 +208,7 @@ async function start() {
       joystick?.set(x, y);
     },
     onHoloClick: () => notifier.click(),
+    onWindowDoubleClick: () => (rig.mode === 'window' ? rig.flyHome(1.8) : rig.flyWindow()),
     onJoystickTap() {
       if (!onGameChannel()) { tuneToGame(); ui.say('Channel 7: SKYLANE – drag the joystick to steer, tap it to fire.'); return; }
       stickIn.tapUntil = performance.now() + 120;
@@ -212,7 +216,7 @@ async function start() {
     slotWorld: () => vcr.slotWorld(),
     setCursor: (c) => ui.setCursor(c),
   });
-  const refreshTargets = () => interaction.setTargets([...occluders, notifier.mesh, tv.hole, ...tapes.interactiveMeshes()]);
+  const refreshTargets = () => interaction.setTargets([...occluders, ...(refs.find('Window_Glass') ? [refs.find('Window_Glass')!] : []), notifier.mesh, tv.hole, ...tapes.interactiveMeshes()]);
 
   // Keyboard: transport controls when focus isn't in a text field.
   const GAME_KEYS: Record<string, string> = {
@@ -257,6 +261,7 @@ async function start() {
     renderer.setSize(w, h, false);
     rig.resize(w, h);
     tv.setSize(w, h);
+    reflection?.resize(w, h);
   };
   addEventListener('resize', resize);
   resize();
@@ -281,6 +286,7 @@ async function start() {
     const s = settingsFor(tier);
     applyPixelRatio(renderer, s.pixelRatio);
     dust.setDensity(s.dust);
+    reflection?.setEnabled(tier !== 'low');
     rain.setDensity(s.rain);
     atmosphere.setHoloInterval(s.holoInterval);
     ui.setQuality(LABEL[tier], tier);
@@ -312,6 +318,7 @@ async function start() {
     safe('tvLight', () => { tvLight.update(now, dt); tv.setReflectionLevel(tvLight.state.dim); });
     safe('dust', () => dust.update(t, renderer.domElement.height * 0.5, tvLight.state.k, tvLight.state.color, tvLight.state.dim));
     safe('vcr', () => vcr.update(now));
+    safe('reflection', () => reflection?.update(dt, tvLight.state.dim));
     safe('notify', () => {
       const rec = vcr.current?.record;
       const playing = vcr.state === 'PLAYING' && vcr.channel === 3;

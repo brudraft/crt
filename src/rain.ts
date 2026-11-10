@@ -53,11 +53,11 @@ const dropFrag = /* glsl */ `
     float mask = clamp(max(max(b1.x, b2.x * 0.8), max(rn.x, rn.y)), 0.0, 1.0);
     float ly = rn.x > b1.x ? rn.z : b1.y;
     // a drop acts like a tiny inverted lens: the bright sky shows at its bottom, neon glints at the top
-    vec3 inner = mix(uSky * 1.6 + 0.04, vec3(0.02, 0.015, 0.035), smoothstep(-0.9, 0.7, ly));
+    vec3 inner = mix(uSky * 1.15 + 0.03, vec3(0.015, 0.012, 0.03), smoothstep(-0.9, 0.7, ly));
     inner += uNeon * 0.35 * smoothstep(0.5, 0.9, -ly) * step(0.5, hh(floor(m * 20.0)));
     float rim = mask * (1.0 - mask) * 4.0;
     vec3 col = inner + vec3(0.9, 0.85, 1.0) * rim * 0.25;
-    float a = mask * 0.6 + 0.03;      // + faint wet film over the whole pane
+    float a = mask * 0.38 + 0.03;      // + faint wet film over the whole pane
     gl_FragColor = vec4(mix(uSky * 0.6, col, step(0.001, mask)), a);
     #include <colorspace_fragment>
   }`;

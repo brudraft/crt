@@ -35,6 +35,7 @@ export interface UIHandlers {
   onToggleMute(): void;
   onToggleSfx(): void;
   onHome(): void;
+  onWindow(): void;
   onUnmuteHint(): void;
 }
 
@@ -67,6 +68,7 @@ export function setupUI(h: UIHandlers) {
   mute.addEventListener('click', () => h.onToggleMute());
   sfx.addEventListener('click', () => h.onToggleSfx());
   $('btn-home').addEventListener('click', () => h.onHome());
+  $('btn-window').addEventListener('click', () => h.onWindow());
   hint.addEventListener('click', () => h.onUnmuteHint());
 
   return {
