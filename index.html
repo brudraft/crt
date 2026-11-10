@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>CRT VHS Room</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Permanent+Marker&family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/src/style.css" />
+</head>
+<body>
+  <div id="stage">
+    <div id="css3d"></div>
+    <canvas id="webgl"></canvas>
+  </div>
+
+  <div id="loading" role="status" aria-live="polite">
+    <div class="loading-box">
+      <p class="blink">LEVEL 3 – LOADING</p>
+      <div class="bar"><div class="bar-fill" id="loading-fill"></div></div>
+      <p id="loading-pct">0%</p>
+    </div>
+  </div>
+
+  <div id="contract-error" hidden role="alert"></div>
+
+  <form id="tape-form" class="panel" autocomplete="off">
+    <label for="tape-url">Record a tape</label>
+    <div class="row">
+      <input id="tape-url" type="url" inputmode="url" placeholder="Paste a YouTube link…" required />
+      <button type="submit">REC ●</button>
+    </div>
+    <div class="row" id="title-row" hidden>
+      <input id="tape-title" type="text" placeholder="Title (couldn't fetch it automatically)" maxlength="60" />
+    </div>
+    <p id="tape-msg" aria-live="polite"></p>
+    <ul id="tape-list" aria-label="Your tapes"></ul>
+  </form>
+
+  <div id="controls-bar" class="panel">
+    <button id="btn-mute" type="button" aria-pressed="false">🔊 SOUND ON</button>
+    <button id="btn-sfx" type="button" aria-pressed="false">SFX OFF</button>
+    <button id="btn-home" type="button" title="Back to the hero view">⌂ VIEW</button>
+  </div>
+
+  <button id="unmute-hint" type="button" hidden>🔇 Muted by the browser – tap to unmute</button>
+  <div id="hint" class="hint">Drag a tape into the slot · tap a tape to auto-load · double-click the TV to recenter · keys: Space play/pause, ←/→ rew/ff, E eject, M mute</div>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

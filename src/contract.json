@@ -1,0 +1,22 @@
+{
+  "$comment": "Scene contract for public/crt_vhs_scene.glb. Shared by src/scene-contract.ts (runtime) and scripts/check-glb.mjs (CLI).",
+  "nodes": [
+    "OrbitTarget", "Cam_Hero", "TV_Root",
+    "Screen", "ScreenAnchor",
+    "VHS_Slot_Anchor", "VHS_Slot_Inside_Anchor", "VHS_Flap",
+    "Btn_Eject", "Btn_Play", "Btn_Stop", "Btn_FF", "Btn_Rew", "Btn_Power",
+    "Knob_Channel", "Knob_Volume", "VCR_Display", "LED_Power",
+    "VHS_Tape_Root", "VHS_Label", "VHS_Spine",
+    "VHS_Tape_01", "VHS_Tape_02", "VHS_Tape_03", "VHS_Tape_04", "VHS_Tape_05",
+    "Cart_TopShelf_Ref", "Cart_LowerShelf_Ref",
+    "Holo_Calendar", "Holo_Energy", "Holo_Network", "Holo_Chart",
+    "FlyingCar", "City_Neon_Signs", "Ceiling_LED_Strip", "Window_Glass"
+  ],
+  "tapeChildren": ["Label", "Spine", "Shell"],
+  "extras": {
+    "Screen": ["screen_width_m", "screen_height_m"],
+    "VHS_Flap": ["open_rotation_deg"],
+    "Btn_Play": ["push_depth_m"]
+  },
+  "materials": ["M_VHS_Label", "M_VHS_Spine", "M_Display", "M_LED_Red"]
+}
